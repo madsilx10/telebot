@@ -13,7 +13,7 @@ REF_START    = "ref_2005545171"
 GROUP        = "lithochat"
 CHANNEL      = "Airdrop"
 
-# Word → Emoji mapping (isi setelah spy)
+# Word → Emoji mapping
 WORD_EMOJI_MAP = {
     "laptop":     "💻",
     "glove":      "🧤",
@@ -42,7 +42,7 @@ def generate_repost(x_profile: str) -> str:
 async def ocr_from_message(client: Client, message) -> str:
     try:
         data = await client.download_media(message, in_memory=True)
-        img = Image.open(io.BytesIO(data.getvalue()))  # fix: getbuffer → getvalue
+        img = Image.open(io.BytesIO(data.getvalue()))
         text = pytesseract.image_to_string(img).strip().lower()
         text = re.sub(r"[^a-z]", "", text)
         return text
@@ -107,20 +107,19 @@ async def run_account(session_string: str, email: str, x_profile: str, wallet: s
             await client.send_message(BOT_USERNAME, f"/start {REF_START}")
             msg = await listener.wait()
             print(f"{tag} START: {msg.text or msg.caption or '(no text)'}")
-            await asyncio.sleep(2)
 
-            # 2. Klik 'Join Airdrop & Register'
+            # 2. Join Airdrop & Register
             await client.send_message(BOT_USERNAME, "💻 Join Airdrop & Register")
             msg = await listener.wait()
-            await asyncio.sleep(2)
+            print(f"{tag} JOIN: {msg.text or '(no text)'}")
 
-            # 3. Drain pesan bot (join group/channel info)
+            # 3. Drain semua sisa pesan bot
             try:
                 while True:
-                    msg = await asyncio.wait_for(listener.queue.get(), timeout=3)
+                    msg = await asyncio.wait_for(listener.queue.get(), timeout=4)
+                    print(f"{tag} DRAIN: {msg.text or '(no text)'}")
             except asyncio.TimeoutError:
                 pass
-            await asyncio.sleep(2)
 
             # 4. Join group & channel
             try:
@@ -128,20 +127,17 @@ async def run_account(session_string: str, email: str, x_profile: str, wallet: s
                 print(f"{tag} Joined group: {GROUP}")
             except Exception as e:
                 print(f"{tag} Join group skip/error: {e}")
-            await asyncio.sleep(1)
 
             try:
                 await client.join_chat(CHANNEL)
                 print(f"{tag} Joined channel: {CHANNEL}")
             except Exception as e:
                 print(f"{tag} Join channel skip/error: {e}")
-            await asyncio.sleep(2)
 
-            # 5. Registration
+            # 5. Registration — tunggu balesan bot dulu
             await client.send_message(BOT_USERNAME, "📝 Registration")
             msg = await listener.wait()
             print(f"{tag} REGISTRATION: {msg.text or '(no text)'}")
-            await asyncio.sleep(2)
 
             # 6. Captcha
             captcha_msg = msg
@@ -164,41 +160,34 @@ async def run_account(session_string: str, email: str, x_profile: str, wallet: s
                 print(f"{tag} ⚠️ Tidak ada mapping untuk '{word}'")
 
             msg = await listener.wait()
-            await asyncio.sleep(2)
 
             # 7. Email
             await client.send_message(BOT_USERNAME, email)
             msg = await listener.wait()
             print(f"{tag} Email: {email}")
-            await asyncio.sleep(2)
 
             # 8. Wallet
             await client.send_message(BOT_USERNAME, wallet)
             msg = await listener.wait()
             print(f"{tag} Wallet: {wallet}")
-            await asyncio.sleep(2)
 
             # 9. X Profile
             await client.send_message(BOT_USERNAME, x_profile)
             msg = await listener.wait()
             print(f"{tag} X Profile: {x_profile}")
-            await asyncio.sleep(2)
 
             # 10. Repost
             await client.send_message(BOT_USERNAME, repost)
             msg = await listener.wait()
             print(f"{tag} Repost: {repost}")
-            await asyncio.sleep(2)
 
             # 11. Yes
             await click_button(msg, "✅ Yes")
             msg = await listener.wait()
-            await asyncio.sleep(2)
 
             # 12. I Have Joined
             await click_button(msg, "✅ I Have Joined")
             msg = await listener.wait()
-            await asyncio.sleep(2)
 
             # 13. Joined!
             await click_button(msg, "🎉 Joined!")
