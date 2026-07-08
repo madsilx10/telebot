@@ -13,7 +13,6 @@ REF_START    = "ref_2005545171"
 GROUP        = "lithochat"
 CHANNEL      = "Airdrop"
 
-
 # Word → Emoji mapping (isi setelah spy)
 WORD_EMOJI_MAP = {
     "laptop":     "💻",
@@ -25,7 +24,6 @@ WORD_EMOJI_MAP = {
     "mirror":     "🪞",
     "axe":        "🪓",
     "mailbox":    "📫",
-    # tambah sesuai hasil spy nanti
 }
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -42,12 +40,11 @@ def generate_repost(x_profile: str) -> str:
 
 
 async def ocr_from_message(client: Client, message) -> str:
-    """Download foto dari pesan lalu OCR → return kata lowercase"""
     try:
         data = await client.download_media(message, in_memory=True)
         img = Image.open(io.BytesIO(data.getbuffer()))
         text = pytesseract.image_to_string(img).strip().lower()
-        text = re.sub(r"[^a-z]", "", text)  # buang non-huruf
+        text = re.sub(r"[^a-z]", "", text)
         return text
     except Exception as e:
         print(f"  [OCR Error] {e}")
@@ -55,7 +52,6 @@ async def ocr_from_message(client: Client, message) -> str:
 
 
 async def click_button(message, label: str) -> bool:
-    """Klik inline button berdasarkan text/emoji-nya"""
     if not message.reply_markup:
         return False
     try:
@@ -66,9 +62,7 @@ async def click_button(message, label: str) -> bool:
         return False
 
 
-# ─── Listener helper ──────────────────────────────────────────────────────────
 class BotListener:
-    """Per-client listener: taruh pesan dari bot ke queue"""
     def __init__(self, client: Client, bot_username: str):
         self.client = client
         self.bot_username = bot_username.lower()
@@ -80,7 +74,6 @@ class BotListener:
             if m.chat and m.chat.username and \
                m.chat.username.lower() == self.bot_username:
                 await self.queue.put(m)
-
         self._handler = MessageHandler(_on_msg)
         self.client.add_handler(self._handler)
 
@@ -92,7 +85,6 @@ class BotListener:
         return await asyncio.wait_for(self.queue.get(), timeout=timeout)
 
 
-# ─── Flow utama satu akun ─────────────────────────────────────────────────────
 async def run_account(session_string: str, email: str, x_profile: str, wallet: str, index: int):
     tag = f"[Akun-{index+1}]"
     repost = generate_repost(x_profile)
@@ -111,22 +103,18 @@ async def run_account(session_string: str, email: str, x_profile: str, wallet: s
         try:
             print(f"{tag} Memulai...")
 
-            # ── 1. /start dengan referral ──────────────────────────────────
+            # 1. /start dengan referral
             await client.send_message(BOT_USERNAME, f"/start {REF_START}")
             msg = await listener.wait()
             print(f"{tag} START: {msg.text or msg.caption or '(no text)'}")
             await asyncio.sleep(2)
 
-            # ── 2. Klik 'Join Airdrop & Register' ─────────────────────────
-            clicked = await click_button(msg, "🪂 Join Airdrop & Register")
-            if not clicked:
-                # fallback: kirim teks
-                await client.send_message(BOT_USERNAME, "Join Airdrop & Register")
+            # 2. Klik 'Join Airdrop & Register'
+            await client.send_message(BOT_USERNAME, "💻 Join Airdrop & Register")
             msg = await listener.wait()
             await asyncio.sleep(2)
 
-            # ── 3. Tunggu pesan join group/channel ────────────────────────
-            # Bot ngirim beberapa pesan sekaligus, drain dulu
+            # 3. Drain pesan bot (join group/channel info)
             try:
                 while True:
                     msg = await asyncio.wait_for(listener.queue.get(), timeout=3)
@@ -134,14 +122,13 @@ async def run_account(session_string: str, email: str, x_profile: str, wallet: s
                 pass
             await asyncio.sleep(2)
 
-            # ── 4. Klik 'Registration' ─────────────────────────────────────
-            await client.send_message(BOT_USERNAME, "📝 Registration")
+            # 4. Registration
+            await client.send_message(BOT_USERNAME, "📝 Registration")  # cek spy kalau salah
             msg = await listener.wait()
             print(f"{tag} REGISTRATION: {msg.text or '(no text)'}")
             await asyncio.sleep(2)
 
-            # ── 5. Captcha ─────────────────────────────────────────────────
-            # Tunggu pesan captcha (ada foto)
+            # 5. Captcha
             captcha_msg = msg
             if not captcha_msg.photo:
                 captcha_msg = await listener.wait()
@@ -149,7 +136,6 @@ async def run_account(session_string: str, email: str, x_profile: str, wallet: s
             word = await ocr_from_message(client, captcha_msg)
             print(f"{tag} OCR: '{word}'")
 
-            # Cari emoji yang cocok
             emoji_answer = None
             for key, emoji in WORD_EMOJI_MAP.items():
                 if key in word:
@@ -160,46 +146,46 @@ async def run_account(session_string: str, email: str, x_profile: str, wallet: s
                 clicked = await click_button(captcha_msg, emoji_answer)
                 print(f"{tag} Captcha klik: {emoji_answer} → {'ok' if clicked else 'gagal'}")
             else:
-                print(f"{tag} ⚠️ Tidak ada mapping untuk '{word}', skip captcha")
+                print(f"{tag} ⚠️ Tidak ada mapping untuk '{word}'")
 
             msg = await listener.wait()
             await asyncio.sleep(2)
 
-            # ── 6. Email ───────────────────────────────────────────────────
+            # 6. Email
             await client.send_message(BOT_USERNAME, email)
             msg = await listener.wait()
-            print(f"{tag} Email sent: {email}")
+            print(f"{tag} Email: {email}")
             await asyncio.sleep(2)
 
-            # ── 7. Wallet ──────────────────────────────────────────────────
+            # 7. Wallet
             await client.send_message(BOT_USERNAME, wallet)
             msg = await listener.wait()
-            print(f"{tag} Wallet sent: {wallet}")
+            print(f"{tag} Wallet: {wallet}")
             await asyncio.sleep(2)
 
-            # ── 8. X Profile ───────────────────────────────────────────────
+            # 8. X Profile
             await client.send_message(BOT_USERNAME, x_profile)
             msg = await listener.wait()
-            print(f"{tag} X Profile sent: {x_profile}")
+            print(f"{tag} X Profile: {x_profile}")
             await asyncio.sleep(2)
 
-            # ── 9. Repost link ─────────────────────────────────────────────
+            # 9. Repost
             await client.send_message(BOT_USERNAME, repost)
             msg = await listener.wait()
-            print(f"{tag} Repost sent: {repost}")
+            print(f"{tag} Repost: {repost}")
             await asyncio.sleep(2)
 
-            # ── 10. Klik Yes ───────────────────────────────────────────────
+            # 10. Yes
             await click_button(msg, "✅ Yes")
             msg = await listener.wait()
             await asyncio.sleep(2)
 
-            # ── 11. Klik I Have Joined ─────────────────────────────────────
+            # 11. I Have Joined
             await click_button(msg, "✅ I Have Joined")
             msg = await listener.wait()
             await asyncio.sleep(2)
 
-            # ── 12. Klik Joined! ───────────────────────────────────────────
+            # 12. Joined!
             await click_button(msg, "🎉 Joined!")
             msg = await listener.wait(timeout=30)
             print(f"{tag} ✅ SELESAI! {msg.text or '(no text)'}")
@@ -212,7 +198,6 @@ async def run_account(session_string: str, email: str, x_profile: str, wallet: s
             listener.stop()
 
 
-# ─── Main ─────────────────────────────────────────────────────────────────────
 async def main():
     sessions   = load_file("sessions.txt")
     emails     = load_file("email.txt")
@@ -221,22 +206,17 @@ async def main():
 
     total = len(sessions)
     print(f"Total akun: {total}")
-    print(f"  0 = semua akun")
-    print(f"  1-{total} = akun tertentu")
-    pilihan = input("Pilihan: ").strip()
+    pilihan = input(f"Pilih akun (1-{total}): ").strip()
 
-    if pilihan == "0":
-        indices = list(range(total))
-    else:
-        try:
-            idx = int(pilihan) - 1
-            if idx < 0 or idx >= total:
-                print(f"Akun tidak valid. Harus antara 1-{total}")
-                return
-            indices = [idx]
-        except ValueError:
-            print("Input tidak valid.")
+    try:
+        idx = int(pilihan) - 1
+        if idx < 0 or idx >= total:
+            print(f"Akun tidak valid. Harus antara 1-{total}")
             return
+        indices = [idx]
+    except ValueError:
+        print("Input tidak valid.")
+        return
 
     tasks = []
     for i in indices:
@@ -244,8 +224,6 @@ async def main():
         x_profile = x_profiles[i % len(x_profiles)]
         wallet    = wallets[i % len(wallets)]
         tasks.append(run_account(sessions[i], email, x_profile, wallet, i))
-        if len(indices) > 1:
-            await asyncio.sleep(random.uniform(3, 7))
 
     await asyncio.gather(*tasks)
 
