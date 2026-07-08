@@ -2,7 +2,7 @@ import asyncio
 import random
 import io
 import re
-from pyrogram import Client, filters
+from pyrogram import Client
 from pyrogram.handlers import MessageHandler
 import pytesseract
 from PIL import Image
@@ -13,7 +13,6 @@ REF_START    = "ref_2005545171"
 GROUP        = "lithochat"
 CHANNEL      = "Airdrop"
 
-# Word → Emoji mapping
 WORD_EMOJI_MAP = {
     "laptop":     "💻",
     "glove":      "🧤",
@@ -39,6 +38,58 @@ def generate_repost(x_profile: str) -> str:
     return f"https://x.com/{username}/status/20{rand}"
 
 
+def find_keyboard_button(msg, keyword: str) -> str | None:
+    """Cari teks keyboard button yang mengandung keyword (case-insensitive)."""
+    try:
+        if msg.reply_markup and hasattr(msg.reply_markup, "keyboard"):
+            for row in msg.reply_markup.keyboard:
+                for btn in row:
+                    if keyword.lower() in btn.text.lower():
+                        return btn.text
+    except Exception:
+        pass
+    return None
+
+
+def find_inline_button(msg, keyword: str) -> str | None:
+    """Cari teks inline button yang mengandung keyword (case-insensitive)."""
+    try:
+        if msg.reply_markup and hasattr(msg.reply_markup, "inline_keyboard"):
+            for row in msg.reply_markup.inline_keyboard:
+                for btn in row:
+                    if keyword.lower() in btn.text.lower():
+                        return btn.text
+    except Exception:
+        pass
+    return None
+
+
+async def send_keyboard_button(client, tag: str, msg, keyword: str) -> bool:
+    """Kirim keyboard button yang cocok dengan keyword."""
+    text = find_keyboard_button(msg, keyword)
+    if text:
+        await client.send_message(BOT_USERNAME, text)
+        print(f"{tag} Klik keyboard: '{text}'")
+        return True
+    print(f"{tag} ⚠️ Keyboard button '{keyword}' tidak ditemukan!")
+    return False
+
+
+async def click_inline_button(tag: str, msg, keyword: str) -> bool:
+    """Klik inline button yang cocok dengan keyword."""
+    text = find_inline_button(msg, keyword)
+    if text:
+        try:
+            await msg.click(text)
+            print(f"{tag} Klik inline: '{text}'")
+            return True
+        except Exception as e:
+            print(f"{tag} [Click Error] '{text}' → {e}")
+            return False
+    print(f"{tag} ⚠️ Inline button '{keyword}' tidak ditemukan!")
+    return False
+
+
 async def ocr_from_message(client: Client, message) -> str:
     try:
         data = await client.download_media(message, in_memory=True)
@@ -49,17 +100,6 @@ async def ocr_from_message(client: Client, message) -> str:
     except Exception as e:
         print(f"  [OCR Error] {e}")
         return ""
-
-
-async def click_button(message, label: str) -> bool:
-    if not message.reply_markup:
-        return False
-    try:
-        await message.click(label)
-        return True
-    except Exception as e:
-        print(f"  [Click Error] label='{label}' → {e}")
-        return False
 
 
 class BotListener:
@@ -103,17 +143,17 @@ async def run_account(session_string: str, email: str, x_profile: str, wallet: s
         try:
             print(f"{tag} Memulai...")
 
-            # 1. /start dengan referral
+            # 1. /start
             await client.send_message(BOT_USERNAME, f"/start {REF_START}")
             msg = await listener.wait()
             print(f"{tag} START: {msg.text or msg.caption or '(no text)'}")
 
             # 2. Join Airdrop & Register
-            await client.send_message(BOT_USERNAME, "💻 Join Airdrop & Register")
+            await send_keyboard_button(client, tag, msg, "Join Airdrop")
             msg = await listener.wait()
             print(f"{tag} JOIN: {msg.text or '(no text)'}")
 
-            # 3. Drain semua sisa pesan bot
+            # 3. Drain sisa pesan bot
             try:
                 while True:
                     msg = await asyncio.wait_for(listener.queue.get(), timeout=4)
@@ -134,8 +174,8 @@ async def run_account(session_string: str, email: str, x_profile: str, wallet: s
             except Exception as e:
                 print(f"{tag} Join channel skip/error: {e}")
 
-            # 5. Registration — tunggu balesan bot dulu
-            await client.send_message(BOT_USERNAME, "📝 Registration")
+            # 5. Registration
+            await send_keyboard_button(client, tag, msg, "Registration")
             msg = await listener.wait()
             print(f"{tag} REGISTRATION: {msg.text or '(no text)'}")
 
@@ -154,8 +194,7 @@ async def run_account(session_string: str, email: str, x_profile: str, wallet: s
                     break
 
             if emoji_answer:
-                clicked = await click_button(captcha_msg, emoji_answer)
-                print(f"{tag} Captcha klik: {emoji_answer} → {'ok' if clicked else 'gagal'}")
+                await click_inline_button(tag, captcha_msg, emoji_answer)
             else:
                 print(f"{tag} ⚠️ Tidak ada mapping untuk '{word}'")
 
@@ -182,15 +221,15 @@ async def run_account(session_string: str, email: str, x_profile: str, wallet: s
             print(f"{tag} Repost: {repost}")
 
             # 11. Yes
-            await click_button(msg, "✅ Yes")
+            await click_inline_button(tag, msg, "Yes")
             msg = await listener.wait()
 
             # 12. I Have Joined
-            await click_button(msg, "✅ I Have Joined")
+            await click_inline_button(tag, msg, "I Have Joined")
             msg = await listener.wait()
 
             # 13. Joined!
-            await click_button(msg, "🎉 Joined!")
+            await click_inline_button(tag, msg, "Joined")
             msg = await listener.wait(timeout=30)
             print(f"{tag} ✅ SELESAI! {msg.text or '(no text)'}")
 
