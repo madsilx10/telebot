@@ -42,7 +42,7 @@ def generate_repost(x_profile: str) -> str:
 async def ocr_from_message(client: Client, message) -> str:
     try:
         data = await client.download_media(message, in_memory=True)
-        img = Image.open(io.BytesIO(data.getbuffer()))
+        img = Image.open(io.BytesIO(data.getvalue()))  # fix: getbuffer → getvalue
         text = pytesseract.image_to_string(img).strip().lower()
         text = re.sub(r"[^a-z]", "", text)
         return text
@@ -122,13 +122,28 @@ async def run_account(session_string: str, email: str, x_profile: str, wallet: s
                 pass
             await asyncio.sleep(2)
 
-            # 4. Registration
-            await client.send_message(BOT_USERNAME, "📝 Registration")  # cek spy kalau salah
+            # 4. Join group & channel
+            try:
+                await client.join_chat(GROUP)
+                print(f"{tag} Joined group: {GROUP}")
+            except Exception as e:
+                print(f"{tag} Join group skip/error: {e}")
+            await asyncio.sleep(1)
+
+            try:
+                await client.join_chat(CHANNEL)
+                print(f"{tag} Joined channel: {CHANNEL}")
+            except Exception as e:
+                print(f"{tag} Join channel skip/error: {e}")
+            await asyncio.sleep(2)
+
+            # 5. Registration
+            await client.send_message(BOT_USERNAME, "📝 Registration")
             msg = await listener.wait()
             print(f"{tag} REGISTRATION: {msg.text or '(no text)'}")
             await asyncio.sleep(2)
 
-            # 5. Captcha
+            # 6. Captcha
             captcha_msg = msg
             if not captcha_msg.photo:
                 captcha_msg = await listener.wait()
@@ -151,41 +166,41 @@ async def run_account(session_string: str, email: str, x_profile: str, wallet: s
             msg = await listener.wait()
             await asyncio.sleep(2)
 
-            # 6. Email
+            # 7. Email
             await client.send_message(BOT_USERNAME, email)
             msg = await listener.wait()
             print(f"{tag} Email: {email}")
             await asyncio.sleep(2)
 
-            # 7. Wallet
+            # 8. Wallet
             await client.send_message(BOT_USERNAME, wallet)
             msg = await listener.wait()
             print(f"{tag} Wallet: {wallet}")
             await asyncio.sleep(2)
 
-            # 8. X Profile
+            # 9. X Profile
             await client.send_message(BOT_USERNAME, x_profile)
             msg = await listener.wait()
             print(f"{tag} X Profile: {x_profile}")
             await asyncio.sleep(2)
 
-            # 9. Repost
+            # 10. Repost
             await client.send_message(BOT_USERNAME, repost)
             msg = await listener.wait()
             print(f"{tag} Repost: {repost}")
             await asyncio.sleep(2)
 
-            # 10. Yes
+            # 11. Yes
             await click_button(msg, "✅ Yes")
             msg = await listener.wait()
             await asyncio.sleep(2)
 
-            # 11. I Have Joined
+            # 12. I Have Joined
             await click_button(msg, "✅ I Have Joined")
             msg = await listener.wait()
             await asyncio.sleep(2)
 
-            # 12. Joined!
+            # 13. Joined!
             await click_button(msg, "🎉 Joined!")
             msg = await listener.wait(timeout=30)
             print(f"{tag} ✅ SELESAI! {msg.text or '(no text)'}")
