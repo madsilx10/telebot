@@ -219,13 +219,33 @@ async def main():
     x_profiles = load_file("x_profile.txt")
     wallets    = load_file("wallet.txt")
 
+    total = len(sessions)
+    print(f"Total akun: {total}")
+    print(f"  0 = semua akun")
+    print(f"  1-{total} = akun tertentu")
+    pilihan = input("Pilihan: ").strip()
+
+    if pilihan == "0":
+        indices = list(range(total))
+    else:
+        try:
+            idx = int(pilihan) - 1
+            if idx < 0 or idx >= total:
+                print(f"Akun tidak valid. Harus antara 1-{total}")
+                return
+            indices = [idx]
+        except ValueError:
+            print("Input tidak valid.")
+            return
+
     tasks = []
-    for i, session in enumerate(sessions):
+    for i in indices:
         email     = emails[i % len(emails)]
         x_profile = x_profiles[i % len(x_profiles)]
         wallet    = wallets[i % len(wallets)]
-        tasks.append(run_account(session, email, x_profile, wallet, i))
-        await asyncio.sleep(random.uniform(3, 7))  # delay antar akun biar ga keblok
+        tasks.append(run_account(sessions[i], email, x_profile, wallet, i))
+        if len(indices) > 1:
+            await asyncio.sleep(random.uniform(3, 7))
 
     await asyncio.gather(*tasks)
 
