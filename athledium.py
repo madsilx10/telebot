@@ -26,7 +26,7 @@ def solve(text):
     if op in ('*', 'x', '×'):  return a * b
     if op in ('/', '÷'):       return a // b
 
-async def wait_bot(app, timeout=10):
+async def wait_bot(app, timeout=5):
     await asyncio.sleep(timeout)
     async for msg in app.get_chat_history(BOT, limit=1):
         return msg
@@ -73,17 +73,19 @@ async def run(session, x_user, wallet, idx):
         msg = await wait_bot(app, 4)
         print(f"[{idx}] Bot: {(msg.text or '')[:80]}")
 
-        # 2. CAPTCHA
+        # 2. KLIK CONTINUE (sebelum jawab captcha)
+        ok = await click_btn(msg, "continue")
+        print(f"[{idx}] Continue → {'✓' if ok else '✗'}")
+        msg = await wait_bot(app, 3)
+
+        # 3. JAWAB CAPTCHA
         text = msg.text or msg.caption or ""
         ans  = solve(text)
         if ans is not None:
             ok = await click_answer(msg, ans)
             print(f"[{idx}] Captcha = {ans} → {'✓' if ok else '✗'}")
-        msg = await wait_bot(app, 3)
-
-        # 3. CONTINUE
-        ok = await click_btn(msg, "continue")
-        print(f"[{idx}] Continue → {'✓' if ok else '✗'}")
+        else:
+            print(f"[{idx}] ⚠ Captcha tidak terbaca: {text[:60]}")
         msg = await wait_bot(app, 3)
 
         # 4. JOIN GROUP
@@ -91,7 +93,10 @@ async def run(session, x_user, wallet, idx):
             await app.join_chat(GROUP)
             print(f"[{idx}] Join group ✓")
         except Exception as e:
-            print(f"[{idx}] Join group: {e}")
+            if "already" in str(e).lower():
+                print(f"[{idx}] Join group → sudah member, skip")
+            else:
+                print(f"[{idx}] Join group: {e}")
 
         # 5. DONE (join)
         ok = await click_btn(msg, "done")
