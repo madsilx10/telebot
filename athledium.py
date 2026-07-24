@@ -45,19 +45,6 @@ async def click_btn(msg, keyword):
                     print(f"  ⚠ click '{btn.text}': {e}")
     return False
 
-async def click_answer(msg, answer):
-    if not msg or not msg.reply_markup:
-        return False
-    for row in msg.reply_markup.inline_keyboard:
-        for btn in row:
-            if btn.text.strip() == str(answer):
-                try:
-                    await msg.click(btn.text)
-                    return True
-                except Exception as e:
-                    print(f"  ⚠ click answer: {e}")
-    return False
-
 async def run(session, x_user, wallet, idx):
     print(f"\n[{idx}] ▶ {x_user}")
     app = Client(
@@ -73,19 +60,19 @@ async def run(session, x_user, wallet, idx):
         msg = await wait_bot(app, 4)
         print(f"[{idx}] Bot: {(msg.text or '')[:80]}")
 
-        # 2. KLIK CONTINUE (sebelum jawab captcha)
+        # 2. KLIK CONTINUE
         ok = await click_btn(msg, "continue")
         print(f"[{idx}] Continue → {'✓' if ok else '✗'}")
         msg = await wait_bot(app, 3)
 
-        # 3. JAWAB CAPTCHA
+        # 3. JAWAB CAPTCHA (ketik jawaban)
         text = msg.text or msg.caption or ""
         ans  = solve(text)
         if ans is not None:
-            ok = await click_answer(msg, ans)
-            print(f"[{idx}] Captcha = {ans} → {'✓' if ok else '✗'}")
+            await app.send_message(BOT, str(ans))
+            print(f"[{idx}] Captcha = {ans} → ✓")
         else:
-            print(f"[{idx}] ⚠ Captcha tidak terbaca: {text[:60]}")
+            print(f"[{idx}] ⚠ Captcha tidak terbaca: {repr(text[:80])}")
         msg = await wait_bot(app, 3)
 
         # 4. JOIN GROUP
