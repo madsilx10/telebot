@@ -58,24 +58,27 @@ async def run(session, x_user, wallet, idx):
         # 1. START
         await app.send_message(BOT, f"/start {REF}")
         msg = await wait_bot(app, 4)
-        print(f"[{idx}] Bot: {(msg.text or '')[:80]}")
+        print(f"[{idx}] Bot: {(msg.text or '')[:100]}")
 
-        # 2. KLIK CONTINUE
-        ok = await click_btn(msg, "continue")
-        print(f"[{idx}] Continue → {'✓' if ok else '✗'}")
-        msg = await wait_bot(app, 3)
-
-        # 3. JAWAB CAPTCHA (ketik jawaban)
+        # 2. PARSE CAPTCHA dari pesan ini dulu, SEBELUM klik continue
         text = msg.text or msg.caption or ""
         ans  = solve(text)
+        print(f"[{idx}] Captcha detected = {ans}")
+
+        # 3. KLIK CONTINUE
+        ok = await click_btn(msg, "continue")
+        print(f"[{idx}] Continue → {'✓' if ok else '✗'}")
+        await asyncio.sleep(2)
+
+        # 4. KIRIM JAWABAN CAPTCHA
         if ans is not None:
             await app.send_message(BOT, str(ans))
-            print(f"[{idx}] Captcha = {ans} → ✓")
+            print(f"[{idx}] Jawab captcha: {ans} ✓")
         else:
-            print(f"[{idx}] ⚠ Captcha tidak terbaca: {repr(text[:80])}")
+            print(f"[{idx}] ⚠ Captcha tidak terbaca, raw: {repr(text)}")
         msg = await wait_bot(app, 3)
 
-        # 4. JOIN GROUP
+        # 5. JOIN GROUP
         try:
             await app.join_chat(GROUP)
             print(f"[{idx}] Join group ✓")
@@ -85,22 +88,22 @@ async def run(session, x_user, wallet, idx):
             else:
                 print(f"[{idx}] Join group: {e}")
 
-        # 5. DONE (join)
+        # 6. DONE (join)
         ok = await click_btn(msg, "done")
         print(f"[{idx}] Done (join) → {'✓' if ok else '✗'}")
         msg = await wait_bot(app, 3)
 
-        # 6. SUBMIT X USERNAME
+        # 7. SUBMIT X USERNAME
         await app.send_message(BOT, x_user)
         print(f"[{idx}] X username: {x_user}")
         msg = await wait_bot(app, 3)
 
-        # 7. DONE (X)
+        # 8. DONE (X)
         ok = await click_btn(msg, "done")
         print(f"[{idx}] Done (X) → {'✓' if ok else '✗'}")
         msg = await wait_bot(app, 3)
 
-        # 8. SUBMIT WALLET
+        # 9. SUBMIT WALLET
         await app.send_message(BOT, wallet)
         print(f"[{idx}] Wallet: {wallet}")
         await asyncio.sleep(3)
