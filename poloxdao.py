@@ -14,17 +14,16 @@ GROUP2   = "poloxdaoofficial"
 USED_YT  = "used_yt.txt"
 # ──────────────────────────────────────────────────────────
 
-FIRST = [
-    "james","john","robert","michael","william","david","richard","joseph","thomas","charles",
-    "oliver","jack","harry","george","noah","leo","oscar","henry","arthur","freddie",
-    "emma","sophia","olivia","ava","isabella","mia","charlotte","amelia","harper","evelyn",
-    "liam","ethan","mason","logan","lucas","aiden","jackson","sebastian","mateo","jayden",
-    "sofia","camila","luna","aria","chloe","penelope","layla","riley","zoey","nora"
+NICKNAMES = [
+    "xavi","ryo","kai","zeke","nino","dex","teo","raf","ace","ivy",
+    "miko","juno","rex","luca","beni","rico","kyo","enzo","axel","zara",
+    "niko","yuki","kira","sena","tara","vex","riku","mira","dion","zion",
+    "kael","nova","lyra","oryn","zev","bex","cleo","jett","remy","sloane",
+    "wren","onyx","ash","cruz","pine","reed","fox","sage","wolf","blue"
 ]
-LAST = [
-    "smith","johnson","williams","brown","jones","garcia","miller","davis","wilson","taylor",
-    "anderson","thomas","jackson","white","harris","martin","thompson","walker","young","king",
-    "scott","green","baker","adams","nelson","carter","mitchell","perez","roberts","turner"
+VIBES = [
+    "xd","gg","ok","yoo","wtf","lol","hmm","bruh","fyi","omg",
+    "irl","ngl","tbh","idk","imo","fr","rn","atm","btw","smh"
 ]
 
 def load(path):
@@ -55,11 +54,15 @@ def save_used(name):
 def random_yt():
     used = load_used()
     for _ in range(300):
-        fn  = random.choice(FIRST)
-        ln  = random.choice(LAST)
-        sep = random.choice(["", "_", "."])
-        num = random.choice(["", str(random.randint(1, 99))])
-        name = fn + sep + ln + num
+        nick = random.choice(NICKNAMES)
+        sep  = random.choice(["", "_", ".", "__"])
+        tail = random.choice([
+            str(random.randint(0, 999)),
+            random.choice(VIBES),
+            random.choice(VIBES) + str(random.randint(0, 99)),
+            nick + random.choice(["_", "."]) + random.choice(NICKNAMES),
+        ])
+        name = nick + sep + tail
         if name not in used:
             save_used(name)
             return f"https://www.youtube.com/@{name}"
@@ -71,17 +74,33 @@ async def wait_bot(app, timeout=5):
         return msg
     return None
 
-async def click_btn(msg, keyword):
+async def click_btn(app, msg, keyword):
+    """Handle InlineKeyboardMarkup dan ReplyKeyboardMarkup."""
     if not msg or not msg.reply_markup:
         return False
-    for row in msg.reply_markup.inline_keyboard:
-        for btn in row:
-            if keyword.lower() in btn.text.lower():
-                try:
-                    await msg.click(btn.text)
-                    return True
-                except Exception as e:
-                    print(f"  ⚠ click '{btn.text}': {e}")
+    markup = msg.reply_markup
+
+    if hasattr(markup, "inline_keyboard"):
+        for row in markup.inline_keyboard:
+            for btn in row:
+                if keyword.lower() in btn.text.lower():
+                    try:
+                        await msg.click(btn.text)
+                        return True
+                    except Exception as e:
+                        print(f"  ⚠ inline click '{btn.text}': {e}")
+
+    elif hasattr(markup, "keyboard"):
+        for row in markup.keyboard:
+            for btn in row:
+                label = btn.text if hasattr(btn, "text") else str(btn)
+                if keyword.lower() in label.lower():
+                    try:
+                        await app.send_message(BOT, label)
+                        return True
+                    except Exception as e:
+                        print(f"  ⚠ reply click '{label}': {e}")
+
     return False
 
 async def join(app, chat, idx):
@@ -125,7 +144,7 @@ async def run(session, email, wallet, idx):
         await asyncio.sleep(2)
 
         # 4. KLIK "Submit your details"
-        ok = await click_btn(msg, "submit your details")
+        ok = await click_btn(app, msg, "submit your details")
         print(f"[{idx}] Submit your details → {'✓' if ok else '✗'}")
         msg = await wait_bot(app, 3)
 
@@ -134,19 +153,19 @@ async def run(session, email, wallet, idx):
         print(f"[{idx}] Email: {email}")
         msg = await wait_bot(app, 3)
 
-        # 6. SUBMIT YOUTUBE LINK (random nama unik)
+        # 6. SUBMIT YOUTUBE LINK
         yt = random_yt()
         await app.send_message(BOT, yt)
         print(f"[{idx}] YouTube: {yt}")
         msg = await wait_bot(app, 3)
 
         # 7. KLIK "Done"
-        ok = await click_btn(msg, "done")
+        ok = await click_btn(app, msg, "done")
         print(f"[{idx}] Done → {'✓' if ok else '✗'}")
         msg = await wait_bot(app, 3)
 
         # 8. KLIK "Yes"
-        ok = await click_btn(msg, "yes")
+        ok = await click_btn(app, msg, "yes")
         print(f"[{idx}] Yes → {'✓' if ok else '✗'}")
         msg = await wait_bot(app, 3)
 
@@ -156,7 +175,7 @@ async def run(session, email, wallet, idx):
         msg = await wait_bot(app, 3)
 
         # 10. KLIK "Complete the airdrop"
-        ok = await click_btn(msg, "complete the airdrop")
+        ok = await click_btn(app, msg, "complete the airdrop")
         print(f"[{idx}] Complete the airdrop → {'✓' if ok else '✗'}")
         await asyncio.sleep(2)
 
